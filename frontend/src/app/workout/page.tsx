@@ -1,8 +1,8 @@
 "use client";
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import {
-  startWorkout, finishWorkout, getExercises, searchExercises,
+  startWorkout, startPlannedWorkout, finishWorkout, getExercises, searchExercises,
   addExerciseToWorkout, addSet, deleteSet, removeExerciseFromWorkout,
   createCheckin, getWorkout, listWorkouts, createExercise, getExerciseLastSets,
 } from "@/lib/api";
@@ -20,6 +20,9 @@ const MG_OPTIONS = [
 
 export default function WorkoutPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const planId = searchParams.get("planId");
+
   const [phase, setPhase] = useState<Phase>("checkin");
   const [workoutId, setWorkoutId] = useState<number | null>(null);
   const [workout, setWorkout] = useState<any>(null);
@@ -69,17 +72,26 @@ export default function WorkoutPage() {
   }
 
   async function handleStartWorkout() {
-    const w = await startWorkout();
-    setWorkoutId(w.id);
+    let wId = 0;
+    if (planId) {
+      wId = Number(planId);
+      await startPlannedWorkout(wId);
+      setWorkoutId(wId);
+    } else {
+      const w = await startWorkout();
+      wId = w.id;
+      setWorkoutId(w.id);
+    }
+    
     await createCheckin({
-      workout_id: w.id,
+      workout_id: wId,
       sleep_quality: sleep,
       emotional_state: mood,
       had_breakfast: breakfast,
       had_coffee: coffee,
     });
     setPhase("training");
-    reloadWorkout(w.id);
+    reloadWorkout(wId);
   }
 
   async function reloadWorkout(id: number) {

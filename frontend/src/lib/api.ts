@@ -34,6 +34,8 @@ export const seedExercises = () => request<any>("/exercises/seed", { method: "PO
 // Workouts
 export const startWorkout = (notes?: string) =>
   request<any>("/workouts", { method: "POST", body: JSON.stringify({ notes }) });
+export const startPlannedWorkout = (id: number) =>
+  request<any>(`/workouts/${id}/start`, { method: "POST" });
 export const listWorkouts = (limit = 20, offset = 0) =>
   request<any[]>(`/workouts?limit=${limit}&offset=${offset}`);
 export const getWorkout = (id: number) => request<any>(`/workouts/${id}`);

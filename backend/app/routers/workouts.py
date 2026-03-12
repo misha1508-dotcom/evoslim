@@ -156,6 +156,19 @@ async def update_workout(workout_id: int, data: WorkoutUpdate, db: AsyncSession 
     await db.commit()
     return {"ok": True}
 
+@router.post("/{workout_id}/start")
+async def start_planned_workout(workout_id: int, db: AsyncSession = Depends(get_db)):
+    stmt = select(Workout).where(Workout.id == workout_id)
+    result = await db.execute(stmt)
+    w = result.scalar_one_or_none()
+    if not w:
+        raise HTTPException(404, "Workout not found")
+    if w.started_at is None:
+        from datetime import datetime, timezone
+        w.started_at = datetime.now(timezone.utc)
+        await db.commit()
+    return {"ok": True}
+
 
 @router.delete("/{workout_id}", status_code=204)
 async def delete_workout(workout_id: int, db: AsyncSession = Depends(get_db)):

@@ -4,6 +4,7 @@ import Link from "next/link";
 import { listWorkouts, seedExercises } from "@/lib/api";
 
 export default function Dashboard() {
+  const [plannedWorkouts, setPlannedWorkouts] = useState<any[]>([]);
   const [lastWorkout, setLastWorkout] = useState<any>(null);
   const [seeded, setSeeded] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -14,8 +15,12 @@ export default function Dashboard() {
 
   async function loadData() {
     try {
-      const workouts = await listWorkouts(1, 0);
-      if (workouts.length > 0) setLastWorkout(workouts[0]);
+      const workouts = await listWorkouts(20, 0);
+      const planned = workouts.filter((w: any) => !w.started_at);
+      const completed = workouts.filter((w: any) => w.started_at);
+      
+      setPlannedWorkouts(planned);
+      if (completed.length > 0) setLastWorkout(completed[0]);
     } catch {}
     setLoading(false);
   }
@@ -53,8 +58,28 @@ export default function Dashboard() {
         href="/workout"
         className="block bg-primary text-white text-center py-4 rounded-2xl text-lg font-semibold active:bg-primary-dark transition-colors"
       >
-        Начать тренировку
+        Начать свободную тренировку
       </Link>
+
+      {plannedWorkouts.length > 0 && (
+        <div className="space-y-3">
+          <h2 className="font-semibold px-1">Запланированные тренировки</h2>
+          {plannedWorkouts.map((pw: any) => (
+             <div key={pw.id} className="bg-gradient-to-r from-blue-500/10 to-indigo-500/10 border border-blue-500/20 rounded-2xl p-4 flex justify-between items-center">
+                <div>
+                  <div className="font-medium text-blue-400">План от ИИ</div>
+                  <div className="text-xs text-text-secondary">{pw.exercises?.length || 0} упражнений</div>
+                </div>
+                <Link
+                  href={`/workout?planId=${pw.id}`}
+                  className="bg-blue-500 text-white text-sm px-4 py-2 rounded-xl font-medium"
+                >
+                  Начать
+                </Link>
+             </div>
+          ))}
+        </div>
+      )}
 
       {lastWorkout && (
         <div className="bg-surface rounded-2xl p-4 space-y-3">

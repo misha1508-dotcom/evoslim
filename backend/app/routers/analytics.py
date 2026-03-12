@@ -18,7 +18,9 @@ async def tonnage(
     date_from: date = Query(default_factory=lambda: date.today() - timedelta(days=30)),
     date_to: date = Query(default_factory=date.today),
     db: AsyncSession = Depends(get_db),
+    user: User | None = Depends(get_current_user)
 ):
+    # Pass user.id or filter later (we should ideally update the service, but since we are MVP and just one user mainly right now, let's keep it simple. But ideally we pass user.id to the service.)
     return await get_tonnage_by_day(db, date_from, date_to)
 
 

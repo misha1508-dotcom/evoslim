@@ -40,13 +40,13 @@ async def process_telegram_update(update: dict):
                 workout_data = await parse_workout_from_text(text)
                 added_workout_text = ""
                 
-                if workout_data and workout_data.get("is_workout"):
+                if workout_data and workout_data.get("is_workout_proposal"):
                     try:
                         from app.models.workout import Workout, WorkoutExercise, WorkoutSet
                         from app.models.exercise import Exercise, MuscleGroup, ExerciseType, Equipment
                         
-                        # Create Workout
-                        workout = Workout(user_id=user.id)
+                        # Create planned Workout
+                        workout = Workout(user_id=user.id, started_at=None)
                         session.add(workout)
                         await session.flush()
                         
@@ -54,13 +54,11 @@ async def process_telegram_update(update: dict):
                         for ex_data in workout_data.get("exercises", []):
                             ex_name = ex_data.get("name", "Неизвестное упражнение")
                             
-                            # Find exercise by name (ilike)
                             stmt_ex = select(Exercise).where(Exercise.name.ilike(f"%{ex_name}%"))
                             ex_result = await session.execute(stmt_ex)
                             db_exercise = ex_result.scalar_one_or_none()
                             
                             if not db_exercise:
-                                # Create dummy custom exercise
                                 db_exercise = Exercise(
                                     name=ex_name,
                                     muscle_group=MuscleGroup.other,
@@ -80,7 +78,7 @@ async def process_telegram_update(update: dict):
                                 w_set = WorkoutSet(
                                     workout_exercise_id=we.id,
                                     set_number=set_num,
-                                    weight_kg=float(s_data.get("weight_kg", 0)),
+                                    weight_kg=0.0,
                                     reps=int(s_data.get("reps", 0)),
                                     is_warmup=bool(s_data.get("is_warmup", False))
                                 )
@@ -90,9 +88,9 @@ async def process_telegram_update(update: dict):
                             ex_index += 1
                             
                         await session.commit()
-                        added_workout_text = "\n\n✅ Тренировка успешно записана в базу! Открывай дневник, чтобы посмотреть детали."
+                        added_workout_text = "\n\n✅ Тренировка составлена и сохранена! Открой Evoslim, чтобы начать ее."
                     except Exception as parse_e:
-                        logger.error(f"Failed to save workout: {parse_e}")
+                        logger.error(f"Failed to save planned workout: {parse_e}")
                         await session.rollback()
 
                 # Get AI response
