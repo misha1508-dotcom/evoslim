@@ -108,3 +108,69 @@ async def parse_workout_from_text(user_text: str) -> dict | None:
         except Exception as e:
             logger.error(f"Error parsing workout json: {e}")
             return None
+
+async def parse_inbody_scan(base64_image: str) -> dict | None:
+    if not settings.openrouter_api_key:
+        return None
+        
+    system_prompt = (
+        "Ты — специализированный анализатор медицинских и фитнес-бланков. "
+        "Пользователь загружает фотографию распечатки InBody (биоимпедансный анализ тела). "
+        "Тебе нужно найти на фото следующие параметры и вернуть их СТРОГО в формате JSON без какого-либо дополнительного текста.\n\n"
+        "Структура JSON:\n"
+        "{\n"
+        "  \"weight_kg\": float,\n"
+        "  \"skeletal_muscle_mass_kg\": float,\n"
+        "  \"body_fat_mass_kg\": float,\n"
+        "  \"total_body_water_l\": float,\n"
+        "  \"protein_kg\": float,\n"
+        "  \"minerals_kg\": float,\n"
+        "  \"bmi\": float,\n"
+        "  \"body_fat_percent\": float,\n"
+        "  \"inbody_score\": int (общая оценка InBody, обычно от 70 до 100+),\n"
+        "  \"visceral_fat_level\": int (уровень висцерального жира)\n"
+        "}\n\n"
+        "Если каких-то параметров не видно, ставь null. НЕ пиши никаких комментариев или объяснений, только чистый JSON."
+    )
+
+    messages = [
+        {"role": "system", "content": system_prompt},
+        {
+            "role": "user", 
+            "content": [
+                {
+                    "type": "image_url",
+                    "image_url": {
+                        "url": f"data:image/jpeg;base64,{base64_image}"
+                    }
+                }
+            ]
+        }
+    ]
+
+    headers = {
+        "Authorization": f"Bearer {settings.openrouter_api_key}",
+        "Content-Type": "application/json",
+        "HTTP-Referer": "https://krechet.space", 
+        "X-Title": "Evoslim Telegram Bot"
+    }
+    
+    payload = {
+        "model": "anthropic/claude-3-opus-20240229",
+        "messages": messages,
+        "response_format": {"type": "json_object"}
+    }
+    
+    async with httpx.AsyncClient() as client:
+        try:
+            # Opus could take slightly longer
+            response = await client.post(OPENROUTER_API_URL, json=payload, headers=headers, timeout=60.0)
+            response.raise_for_status()
+            data = response.json()
+            content = data["choices"][0]["message"]["content"]
+            if content.startswith("```json"):
+                content = content.replace("```json", "").replace("```", "").strip()
+            return json.loads(content)
+        except Exception as e:
+            logger.error(f"Error parsing InBody image: {e}")
+            return None

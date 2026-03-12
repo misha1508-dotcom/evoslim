@@ -12,6 +12,7 @@ class User(Base):
     genetic_context = Column(Text, nullable=True)
     allergies_and_risks = Column(Text, nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
+    last_measurements_request = Column(DateTime(timezone=True), nullable=True)
 
     workouts = relationship("Workout", back_populates="user", cascade="all, delete-orphan")
     medical_history = relationship("MedicalHistory", back_populates="user", cascade="all, delete-orphan")

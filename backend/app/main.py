@@ -15,7 +15,14 @@ async def lifespan(app: FastAPI):
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
     os.makedirs(settings.upload_dir, exist_ok=True)
+    
+    import asyncio
+    from app.services.reminders import check_reminders_loop
+    task = asyncio.create_task(check_reminders_loop())
+    
     yield
+    
+    task.cancel()
 
 
 app = FastAPI(title="Training Diary", version="1.0.0", lifespan=lifespan)
