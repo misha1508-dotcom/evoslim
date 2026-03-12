@@ -35,6 +35,66 @@ async def process_telegram_update(update: dict):
                     await session.commit()
                     await session.refresh(user)
                 
+                # Ask AI if this is a workout log
+                from app.services.ai import parse_workout_from_text
+                workout_data = await parse_workout_from_text(text)
+                added_workout_text = ""
+                
+                if workout_data and workout_data.get("is_workout"):
+                    try:
+                        from app.models.workout import Workout, WorkoutExercise, WorkoutSet
+                        from app.models.exercise import Exercise, MuscleGroup, ExerciseType, Equipment
+                        
+                        # Create Workout
+                        workout = Workout(user_id=user.id)
+                        session.add(workout)
+                        await session.flush()
+                        
+                        ex_index = 0
+                        for ex_data in workout_data.get("exercises", []):
+                            ex_name = ex_data.get("name", "Неизвестное упражнение")
+                            
+                            # Find exercise by name (ilike)
+                            stmt_ex = select(Exercise).where(Exercise.name.ilike(f"%{ex_name}%"))
+                            ex_result = await session.execute(stmt_ex)
+                            db_exercise = ex_result.scalar_one_or_none()
+                            
+                            if not db_exercise:
+                                # Create dummy custom exercise
+                                db_exercise = Exercise(
+                                    name=ex_name,
+                                    muscle_group=MuscleGroup.other,
+                                    exercise_type=ExerciseType.compound,
+                                    equipment=Equipment.other,
+                                    is_custom=True
+                                )
+                                session.add(db_exercise)
+                                await session.flush()
+                                
+                            we = WorkoutExercise(workout_id=workout.id, exercise_id=db_exercise.id, order_index=ex_index)
+                            session.add(we)
+                            await session.flush()
+                            
+                            set_num = 1
+                            for s_data in ex_data.get("sets", []):
+                                w_set = WorkoutSet(
+                                    workout_exercise_id=we.id,
+                                    set_number=set_num,
+                                    weight_kg=float(s_data.get("weight_kg", 0)),
+                                    reps=int(s_data.get("reps", 0)),
+                                    is_warmup=bool(s_data.get("is_warmup", False))
+                                )
+                                session.add(w_set)
+                                set_num += 1
+                                
+                            ex_index += 1
+                            
+                        await session.commit()
+                        added_workout_text = "\n\n✅ Тренировка успешно записана в базу! Открывай дневник, чтобы посмотреть детали."
+                    except Exception as parse_e:
+                        logger.error(f"Failed to save workout: {parse_e}")
+                        await session.rollback()
+
                 # Get AI response
                 ai_reply = await get_ai_response(
                     user_text=text, 
@@ -44,7 +104,7 @@ async def process_telegram_update(update: dict):
                 
             await send_telegram_message(
                 chat_id=chat_id, 
-                text=ai_reply,
+                text=ai_reply + added_workout_text,
                 reply_markup={
                     "inline_keyboard": [[{
                         "text": "📱 Открыть Evoslim",
