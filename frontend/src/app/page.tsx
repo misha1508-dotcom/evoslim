@@ -103,6 +103,10 @@ export default function Dashboard() {
           <div className="text-2xl mb-1">💪</div>
           <div className="font-medium">Упражнения</div>
         </Link>
+        <Link href="/settings" className="bg-surface rounded-2xl p-4 text-center col-span-2 bg-gradient-to-r from-purple-500/10 to-blue-500/10 border border-purple-500/20">
+          <div className="text-2xl mb-1">🤖</div>
+          <div className="font-medium text-purple-400">Настройки ИИ</div>
+        </Link>
       </div>
     </div>
   );

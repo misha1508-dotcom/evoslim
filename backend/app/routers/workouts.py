@@ -7,6 +7,8 @@ from sqlalchemy.orm import selectinload
 
 from app.database import get_db
 from app.models.workout import Workout, WorkoutExercise, WorkoutSet
+from app.models.user import User
+from app.dependencies import get_current_user, get_current_user_required
 
 router = APIRouter()
 
@@ -93,8 +95,12 @@ def _load_options():
 # --- Routes ---
 
 @router.post("", status_code=201)
-async def start_workout(data: WorkoutCreate, db: AsyncSession = Depends(get_db)):
-    workout = Workout(notes=data.notes)
+async def start_workout(
+    data: WorkoutCreate, 
+    db: AsyncSession = Depends(get_db),
+    user: User | None = Depends(get_current_user)
+):
+    workout = Workout(notes=data.notes, user_id=user.id if user else None)
     db.add(workout)
     await db.commit()
     await db.refresh(workout)
@@ -106,6 +112,7 @@ async def list_workouts(
     limit: int = 20,
     offset: int = 0,
     db: AsyncSession = Depends(get_db),
+    user: User | None = Depends(get_current_user)
 ):
     stmt = (
         select(Workout)
@@ -114,6 +121,12 @@ async def list_workouts(
         .limit(limit)
         .offset(offset)
     )
+    if user:
+        stmt = stmt.where(Workout.user_id == user.id)
+    else:
+        # Before returning all for unauthenticated, we could return empty or all. 
+        # Leaving all for now so existing local UI keeps working if missing TMA auth.
+        pass
     result = await db.execute(stmt)
     workouts = result.scalars().all()
     return [_to_workout_out(w) for w in workouts]

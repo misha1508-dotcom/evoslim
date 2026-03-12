@@ -37,6 +37,7 @@ app.include_router(measurements.router, prefix="/api/measurements", tags=["measu
 app.include_router(inbody.router, prefix="/api/inbody", tags=["inbody"])
 app.include_router(analytics.router, prefix="/api/analytics", tags=["analytics"])
 app.include_router(telegram.router, prefix="/api/telegram", tags=["telegram"])
+app.include_router(users.router, prefix="/api/users", tags=["users"])
 
 
 @app.get("/api/health")

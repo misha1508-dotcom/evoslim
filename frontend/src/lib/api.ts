@@ -3,8 +3,14 @@ const BASE = (typeof window !== "undefined" && window.location.pathname.startsWi
   : "/api";
 
 async function request<T>(path: string, options?: RequestInit): Promise<T> {
+  const headers: Record<string, string> = { "Content-Type": "application/json", ...(options?.headers as any) };
+  
+  if (typeof window !== "undefined" && (window as any).Telegram?.WebApp?.initData) {
+    headers["Authorization"] = `tma ${(window as any).Telegram.WebApp.initData}`;
+  }
+
   const res = await fetch(`${BASE}${path}`, {
-    headers: { "Content-Type": "application/json", ...options?.headers },
+    headers,
     ...options,
   });
   if (!res.ok) {
@@ -102,3 +108,8 @@ export const getMuscleGroupVolume = (from?: string, to?: string) => {
   return request<any[]>(`/analytics/muscle-group-volume?${params}`);
 };
 export const getCheckinCorrelation = () => request<any[]>("/analytics/checkin-correlation");
+
+// Users
+export const getUserInfo = () => request<any>("/users/me");
+export const updateUserInfo = (data: { genetic_context?: string; allergies_and_risks?: string }) =>
+  request<any>("/users/me", { method: "PATCH", body: JSON.stringify(data) });
