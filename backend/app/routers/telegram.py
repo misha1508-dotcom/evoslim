@@ -42,7 +42,16 @@ async def process_telegram_update(update: dict):
                     allergies_and_risks=user.allergies_and_risks
                 )
                 
-            await send_telegram_message(chat_id, ai_reply)
+            await send_telegram_message(
+                chat_id=chat_id, 
+                text=ai_reply,
+                reply_markup={
+                    "inline_keyboard": [[{
+                        "text": "📱 Открыть Evoslim",
+                        "web_app": {"url": "https://krechet.space/training/"}
+                    }]]
+                } if text.startswith("/start") else None
+            )
 
 async def send_telegram_chat_action(chat_id: int, action: str):
     if not settings.telegram_bot_token:
@@ -55,7 +64,7 @@ async def send_telegram_chat_action(chat_id: int, action: str):
         except Exception:
             pass
 
-async def send_telegram_message(chat_id: int, text: str):
+async def send_telegram_message(chat_id: int, text: str, reply_markup: dict = None):
     if not settings.telegram_bot_token:
         logger.error("Telegram bot token not configured")
         return
@@ -65,6 +74,9 @@ async def send_telegram_message(chat_id: int, text: str):
         "chat_id": chat_id,
         "text": text
     }
+    if reply_markup:
+        payload["reply_markup"] = reply_markup
+        
     async with httpx.AsyncClient() as client:
         try:
             response = await client.post(url, json=payload)
