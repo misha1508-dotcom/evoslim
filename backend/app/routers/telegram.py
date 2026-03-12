@@ -4,6 +4,11 @@ import httpx
 
 from app.config import settings
 
+from sqlalchemy import select
+from app.database import async_session
+from app.models.user import User
+from app.services.ai import get_ai_response
+
 router = APIRouter()
 logger = logging.getLogger(__name__)
 
@@ -12,10 +17,43 @@ async def process_telegram_update(update: dict):
         message = update["message"]
         chat_id = message.get("chat", {}).get("id")
         text = message.get("text", "")
+        username = message.get("from", {}).get("username")
         
         if chat_id and text:
-            # Simple echo for now, later we integrate AI logic here
-            await send_telegram_message(chat_id, f"Evoslim received: {text}")
+            # Notify user that we are thinking
+            await send_telegram_chat_action(chat_id, "typing")
+            
+            async with async_session() as session:
+                # Get or create user
+                stmt = select(User).where(User.telegram_id == chat_id)
+                result = await session.execute(stmt)
+                user = result.scalar_one_or_none()
+                
+                if not user:
+                    user = User(telegram_id=chat_id, username=username)
+                    session.add(user)
+                    await session.commit()
+                    await session.refresh(user)
+                
+                # Get AI response
+                ai_reply = await get_ai_response(
+                    user_text=text, 
+                    genetic_context=user.genetic_context, 
+                    allergies_and_risks=user.allergies_and_risks
+                )
+                
+            await send_telegram_message(chat_id, ai_reply)
+
+async def send_telegram_chat_action(chat_id: int, action: str):
+    if not settings.telegram_bot_token:
+        return
+    url = f"https://api.telegram.org/bot{settings.telegram_bot_token}/sendChatAction"
+    payload = {"chat_id": chat_id, "action": action}
+    async with httpx.AsyncClient() as client:
+        try:
+            await client.post(url, json=payload)
+        except Exception:
+            pass
 
 async def send_telegram_message(chat_id: int, text: str):
     if not settings.telegram_bot_token:
